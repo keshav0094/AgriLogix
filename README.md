@@ -14,7 +14,7 @@ An integrated platform enabling direct farmer-to-buyer trade, AI-driven crop pri
 * **Anwita (Lead):** UI/UX Design (Figma), Database Schema, FastAPI Auth & User Services
 * **Keshav:** AI Demand Forecasting Models & Google OR-Tools Route Engine
 * **Ashutosh:** Java Spring Boot Order Management & Microservices Integration
-* **Somya:** React.js Web Portal & Farmer App Frontend
+* **Harshit:** React.js Web Portal & Farmer App Frontend
 * **Vaibhav:** Geospatial Mapping (Mapbox/Leaflet) & Analytics Dashboards
 * **Anushka:** Quality Assurance, API Testing (Postman), Data Processing & Presentation
 
