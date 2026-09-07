@@ -67,3 +67,31 @@
   "payoutTrigger": "GPS_ARRIVAL_VERIFIED"
 }
 ```
+
+## 5. Price & Mandi Forecasting
+```json
+{
+  "crop_name": "Potato",
+  "forecast_days": 14
+}
+```
+```json
+{
+  "status": "success",
+  "data": {
+    "crop_name": "Potato",
+    "current_mandi_price": 1250.0,
+    "recommended_selling_price": 1320.5,
+    "signal": "HOLD",
+    "projected_growth_percent": 5.64,
+    "daily_projections": [
+      {
+        "day": "Day 1",
+        "predicted_price": 1260.0,
+        "lower_bound": 1240.0,
+        "upper_bound": 1280.0
+      }
+    ]
+  }
+}
+```

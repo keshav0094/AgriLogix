@@ -6,3 +6,6 @@ ortools
 pydantic
 requests
 gunicorn
+apscheduler
+psycopg2-binary
+sqlalchemy
