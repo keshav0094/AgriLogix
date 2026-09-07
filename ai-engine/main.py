@@ -1,3 +1,4 @@
+from data_pipeline import start_pipeline
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,6 +15,10 @@ app = FastAPI(
     description="Microservice for price forecasting and logistics optimization",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+def startup_event():
+    start_pipeline()
 
 app.add_middleware(
     CORSMiddleware,

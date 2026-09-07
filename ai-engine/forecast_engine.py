@@ -2,51 +2,39 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from prophet import Prophet
+import os
+from sqlalchemy import create_engine
 
-def load_real_agmarknet_data(csv_path: str, crop_name: str) -> pd.DataFrame:
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/krishisetu")
+engine = create_engine(DATABASE_URL)
+
+def get_forecast_data(commodity_name: str):
     """
-    Reads the real Agmarknet CSV, cleans the data, and formats it 
-    strictly to meet Prophet's 'ds' and 'y' column requirements.
+    Queries the live PostgreSQL database for historical prices instead of a CSV.
     """
-    # 1. Agmarknet CSVs have a title in the first row, so we skip it
-    df = pd.read_csv(csv_path, header=1)
+    query = f"SELECT arrival_date as ds, modal_price as y FROM mandi_prices WHERE commodity = '{commodity_name}'"
+    df = pd.read_sql(query, engine)
     
-    # 2. Filter for the specific crop (case-insensitive to avoid errors)
-    df = df[df['Commodity'].str.lower() == crop_name.lower()]
+    # Prophet requires the datestamp column to be datetime objects
+    df['ds'] = pd.to_datetime(df['ds'])
     
-    if df.empty:
-        raise ValueError(f"No data found for {crop_name}. Check spelling or CSV contents.")
-    
-    # 3. Dynamically find the 'Modal Price' column regardless of the date range in the header
-    price_col = [col for col in df.columns if 'Modal Price' in col][0]
-    
-    # 4. Rename columns to match Prophet's strict requirements
-    df = df.rename(columns={
-        'Month': 'ds', 
-        price_col: 'y'
-    })
-    
-    # 5. Convert 'January-2023' strings to proper datetime objects
-    df['ds'] = pd.to_datetime(df['ds'], format='%B-%Y', errors='coerce')
-    df['y'] = pd.to_numeric(df['y'], errors='coerce')
-    
-    # 6. Average the prices if multiple markets reported data in the same month
-    df = df.groupby('ds')['y'].mean().reset_index()
-    
-    # 7. Drop empty rows and sort chronologically
+    # Drop empty rows and sort chronologically
     df = df.dropna().sort_values('ds')
     
+    if df.empty:
+        raise ValueError(f"No data found for {commodity_name} in the live database.")
+        
     return df
 
-def run_price_forecast(csv_path: str, crop_name: str, forecast_days: int = 14) -> dict:
+def run_price_forecast(crop_name: str, forecast_days: int = 14, csv_path: str = None) -> dict:
     """
-    Fits Prophet on real crop price history and returns structured 
+    Fits Prophet on live database crop price history and returns structured 
     forecast data conforming to the team's API contract.
     """
-    # 1. Acquire and format real data
-    df = load_real_agmarknet_data(csv_path, crop_name)
+    # 1. Acquire and format live SQL data
+    df = get_forecast_data(crop_name)
     
-    # 2. Instantiate and train Prophet (weekly turned off due to monthly data intervals)
+    # 2. Instantiate and train Prophet (weekly turned off due to monthly/daily gaps)
     model = Prophet(daily_seasonality=False, weekly_seasonality=False, yearly_seasonality=True)
     model.fit(df)
     
@@ -83,14 +71,14 @@ def run_price_forecast(csv_path: str, crop_name: str, forecast_days: int = 14) -
     }
 
 if __name__ == "__main__":
-    # Target the exact downloaded CSV filename and a known crop
-    CSV_FILENAME = "All_Type_of_Report_(All_Grades)_04-09-2026_09-32-22_PM.csv"
     TARGET_CROP = "Potato"
     
-    print(f"Training Prophet model on historical {TARGET_CROP} data...")
-    result = run_price_forecast(CSV_FILENAME, TARGET_CROP, forecast_days=14)
-    
-    print(f"\nCurrent Mandi Price: ₹{result['current_mandi_price']}/quintal")
-    print(f"14-Day RSP: ₹{result['recommended_selling_price']}/quintal")
-    print(f"Action Signal: {result['signal']} ({result['projected_growth_percent']}%)")
-    print(f"Sample First Day Output: {result['daily_projections'][0]}")
+    print(f"Training Prophet model on historical {TARGET_CROP} data from the live database...")
+    try:
+        result = run_price_forecast(crop_name=TARGET_CROP, forecast_days=14)
+        print(f"\nCurrent Mandi Price: ₹{result['current_mandi_price']}/quintal")
+        print(f"14-Day RSP: ₹{result['recommended_selling_price']}/quintal")
+        print(f"Action Signal: {result['signal']} ({result['projected_growth_percent']}%)")
+        print(f"Sample First Day Output: {result['daily_projections'][0]}")
+    except Exception as e:
+        print(f"Database Error: {e}\n(Ensure Ashutosh's database is running and populated via data_pipeline.py)")
