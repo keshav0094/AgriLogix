@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pandas
+prophet
+ortools
+pydantic
+requests
+gunicorn
