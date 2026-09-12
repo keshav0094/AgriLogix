@@ -11,7 +11,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localho
 engine = create_engine(DATABASE_URL)
 
 # Register a free account at data.gov.in for your API key
-DATA_GOV_API_KEY = "YOUR_API_KEY_HERE" 
+DATA_GOV_API_KEY = "579b464db66ec23bdd000001675df5f39cfb43bd6aab914bd518e223" 
 RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070"  # Daily Mandi prices UUID
 
 def fetch_and_store_mandi_prices():
