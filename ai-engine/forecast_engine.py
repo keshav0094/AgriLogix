@@ -6,34 +6,46 @@ from prophet import Prophet
 import os
 from sqlalchemy import create_engine
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/krishisetu")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://neondb_owner:npg_9TwW3YoGBhHy@ep-weathered-bread-ayejkoqt-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
 engine = create_engine(DATABASE_URL)
 
-def get_forecast_data(commodity_name: str):
+def get_forecast_data(commodity_name: str, state_name: str = None):
     """
-    Queries the live PostgreSQL database for historical prices instead of a CSV.
+    Queries the live PostgreSQL database for historical prices, filtered by state if provided.
     """
-    query = f"SELECT arrival_date as ds, modal_price as y FROM mandi_prices WHERE commodity = '{commodity_name}'"
+    query = f"SELECT arrival_date as ds, modal_price as y FROM mandi_prices WHERE UPPER(commodity) = UPPER('{commodity_name}')"
+    
+    # If a state is specified, filter the query down to that region
+    if state_name:
+        query += f" AND UPPER(state) = UPPER('{state_name}')"
+        
     df = pd.read_sql(query, engine)
     
-    # Prophet requires the datestamp column to be datetime objects
-    df['ds'] = pd.to_datetime(df['ds'])
-    
-    # Drop empty rows and sort chronologically
-    df = df.dropna().sort_values('ds')
-    
     if df.empty:
-        raise ValueError(f"No data found for {commodity_name} in the live database.")
+        raise ValueError(f"No data found for {commodity_name} in {state_name or 'India'}.")
+
+    df['ds'] = pd.to_datetime(df['ds'])
+    df['y'] = pd.to_numeric(df['y'], errors='coerce')
+    df = df.dropna(subset=['ds', 'y'])
+    
+    # SIH Hack: Shift historical 2025 dates forward to 2026 so the live demo matches today's date
+    df['ds'] = df['ds'] + pd.DateOffset(years=1)
+    
+    # Aggregate duplicates to get the daily average for that specific location
+    df = df.groupby('ds', as_index=False)['y'].mean().sort_values('ds')
+    
+    if len(df) < 2:
+        raise ValueError(f"Not enough historical days found for {commodity_name} in {state_name or 'India'}.")
         
     return df
 
-def run_price_forecast(crop_name: str, forecast_days: int = 14, csv_path: str = None) -> dict:
+def run_price_forecast(crop_name: str, state_name: str = None, forecast_days: int = 14) -> dict:
     """
-    Fits Prophet on live database crop price history and returns structured 
+    Fits Prophet on live database crop price history and returns structured
     forecast data conforming to the team's API contract.
     """
-    # 1. Acquire and format live SQL data
-    df = get_forecast_data(crop_name)
+    # 1. Acquire and format live SQL data with optional state filter
+    df = get_forecast_data(crop_name, state_name)
     
     # 2. Instantiate and train Prophet (weekly turned off due to monthly/daily gaps)
     model = Prophet(daily_seasonality=False, weekly_seasonality=False, yearly_seasonality=True)
@@ -64,6 +76,7 @@ def run_price_forecast(crop_name: str, forecast_days: int = 14, csv_path: str = 
         
     return {
         "crop_name": crop_name,
+        "state": state_name or "All India",
         "current_mandi_price": round(current_price, 2),
         "recommended_selling_price": round(projected_end_price, 2),
         "signal": signal,
@@ -73,10 +86,9 @@ def run_price_forecast(crop_name: str, forecast_days: int = 14, csv_path: str = 
 
 if __name__ == "__main__":
     TARGET_CROP = "Potato"
-    
     print(f"Training Prophet model on historical {TARGET_CROP} data from the live database...")
     try:
-        result = run_price_forecast(crop_name=TARGET_CROP, forecast_days=14)
+        result = run_price_forecast(crop_name=TARGET_CROP, state_name="NCT of Delhi", forecast_days=14)
         print(f"\nCurrent Mandi Price: ₹{result['current_mandi_price']}/quintal")
         print(f"14-Day RSP: ₹{result['recommended_selling_price']}/quintal")
         print(f"Action Signal: {result['signal']} ({result['projected_growth_percent']}%)")

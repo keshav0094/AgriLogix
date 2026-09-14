@@ -3,12 +3,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import os
 import uuid
 
 # Ignore Pyright import warnings for local files
 from forecast_engine import run_price_forecast  # type: ignore
-from routing_engine import solve_cvrp           # type: ignore
+from routing_engine import solve_cvrp          # type: ignore
 
 app = FastAPI(
     title="KrishiSetu AI Engine",
@@ -28,11 +27,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CSV_FILE = "All_Type_of_Report_(All_Grades)_04-09-2026_09-32-22_PM.csv"
-
 # --- Models for Forecasting ---
 class ForecastRequest(BaseModel):
     crop_name: str = "Potato"
+    state: Optional[str] = None  # Optional state filter for regional pricing
     forecast_days: int = 14
 
 # --- Models for Routing ---
@@ -72,12 +70,9 @@ def health_check():
 @app.post("/api/v1/forecast/price")
 def get_price_forecast(payload: ForecastRequest):
     try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(base_dir, CSV_FILE)
-        
         forecast_result = run_price_forecast(
-            csv_path=csv_path,
             crop_name=payload.crop_name,
+            state_name=payload.state,
             forecast_days=payload.forecast_days
         )
         return {"status": "success", "data": forecast_result}
