@@ -6,24 +6,18 @@ import math
 import requests
 
 def calculate_distance_matrix(locations):
-    """
-    Fetches real road driving distances (in meters) using the OSRM public API.
-    locations: list of [lat, lng]
-    """
     coords_string = ";".join([f"{loc[1]},{loc[0]}" for loc in locations])
     url = f"http://router.project-osrm.org/table/v1/driving/{coords_string}?annotations=distance"
     
     try:
         response = requests.get(url, timeout=5)
         data = response.json()
-        
         if data.get("code") != "Ok" or "distances" not in data:
             return calculate_euclidean_distance_matrix(locations)
             
         matrix = []
         for row in data["distances"]:
             matrix.append([int(round(dist)) if dist is not None else 999999 for dist in row])
-            
         return matrix
     except Exception:
         return calculate_euclidean_distance_matrix(locations)
@@ -38,16 +32,20 @@ def calculate_euclidean_distance_matrix(locations):
         matrix.append(row)
     return matrix
 
-def solve_cvrp(hub_coords: list, pickup_nodes: list, max_trucks: int = 2, truck_capacity: float = 100.0):
-    """
-    Solves Capacitated Vehicle Routing Problem using Google OR-Tools.
-    """
-    all_locations = [hub_coords] + [[node["lat"], node["lng"]] for node in pickup_nodes]
-    demands = [0] + [int(node["weight_quintals"]) for node in pickup_nodes]
+def solve_vrppd(depot, pickups, deliveries, vehicles):
+    # Indexing: 0 is Depot, 1 to P are Pickups, P+1 to P+D are Deliveries
+    all_locations = [depot] + [[p["lat"], p["lng"]] for p in pickups] + [[d["lat"], d["lng"]] for d in deliveries]
     
+    # Demands: Positive for pickup, negative for delivery to track running vehicle load
+    demands = [0]
+    for p in pickups: demands.append(int(p["weight_quintals"]))
+    for d in deliveries: demands.append(-int(d["weight_quintals"]))
+        
     distance_matrix = calculate_distance_matrix(all_locations)
+    num_vehicles = len(vehicles)
+    vehicle_capacities = [int(v["capacity_quintals"]) for v in vehicles]
     
-    manager = pywrapcp.RoutingIndexManager(len(all_locations), max_trucks, 0)
+    manager = pywrapcp.RoutingIndexManager(len(all_locations), num_vehicles, 0)
     routing = pywrapcp.RoutingModel(manager)
 
     def distance_callback(from_index, to_index):
@@ -57,79 +55,104 @@ def solve_cvrp(hub_coords: list, pickup_nodes: list, max_trucks: int = 2, truck_
 
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+    
+    # Minimize fleet size by applying a fixed activation cost to each truck
+    for i, v in enumerate(vehicles):
+        routing.SetFixedCostOfVehicle(int(v["fixed_cost"]), i)
 
     def demand_callback(from_index):
         from_node = manager.IndexToNode(from_index)
         return demands[from_node]
 
     demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+    
+    # Configure heterogeneous capacities using AddDimensionWithVehicleCapacity
     routing.AddDimensionWithVehicleCapacity(
         demand_callback_index,
-        0,
-        [int(truck_capacity)] * max_trucks,
-        True,
+        0,  
+        vehicle_capacities,
+        True, 
         "Capacity"
     )
+    
+    # Distance dimension required to strictly enforce chronological order of pickups/deliveries
+    routing.AddDimension(
+        transit_callback_index,
+        0,  
+        9999999, 
+        True,
+        "Distance"
+    )
+    distance_dim = routing.GetDimensionOrDie("Distance")
+
+    penalty = 1000000  # High penalty allows the solver to drop unfeasible isolated orders
+    
+    # Bind Farmer-to-Buyer pairs
+    for i in range(len(pickups)):
+        pickup_node = i + 1
+        delivery_node = i + 1 + len(pickups)
+        
+        pickup_index = manager.NodeToIndex(pickup_node)
+        delivery_index = manager.NodeToIndex(delivery_node)
+        
+        routing.AddPickupAndDelivery(pickup_index, delivery_index)
+        # Force the same truck to handle both the pickup and the corresponding delivery
+        routing.solver().Add(routing.VehicleVar(pickup_index) == routing.VehicleVar(delivery_index))
+        # Force the truck to arrive at the pickup location BEFORE the delivery location
+        routing.solver().Add(distance_dim.CumulVar(pickup_index) <= distance_dim.CumulVar(delivery_index))
+        
+        routing.AddDisjunction([pickup_index], penalty)
+        routing.AddDisjunction([delivery_index], penalty)
 
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-    )
-
+    search_parameters.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
+    
     solution = routing.SolveWithParameters(search_parameters)
     
     if not solution:
-        return {"status": "error", "message": "No feasible route found within vehicle capacity limits."}
+        return {"status": "error", "message": "No solution found."}
 
     routes_output = []
-    total_distance_meters = 0
-
-    for vehicle_id in range(max_trucks):
+    
+    for vehicle_id in range(num_vehicles):
         index = routing.Start(vehicle_id)
         path_coords = []
-        pickup_seq = []
-        route_load = 0
-
+        node_sequence = []
+        
         while not routing.IsEnd(index):
             node_index = manager.IndexToNode(index)
-            route_load += demands[node_index]
             path_coords.append(all_locations[node_index])
-            
-            if node_index != 0:
-                pickup_seq.append(pickup_nodes[node_index - 1]["node_id"])
-
-            previous_index = index
+            node_sequence.append(node_index)
             index = solution.Value(routing.NextVar(index))
-            total_distance_meters += routing.GetArcCostForVehicle(previous_index, index, vehicle_id)
-
-        path_coords.append(all_locations[0])
-
-        if pickup_seq:
+            
+        if len(node_sequence) > 1:
+            path_coords.append(all_locations[0])
             routes_output.append({
-                "truck_id": f"TRUCK_{vehicle_id + 1}",
-                "capacity_utilized_percent": round((route_load / truck_capacity) * 100, 1),
-                "total_weight_quintals": route_load,
-                "pickup_sequence": pickup_seq,
-                "coordinates_path": path_coords
+                "truck_id": vehicles[vehicle_id]["id"],
+                "path_coords": path_coords,
+                "node_sequence": node_sequence
             })
-
-    total_distance_km = round(total_distance_meters / 1000.0, 2)
-    
-    return {
-        "status": "optimized",
-        "total_distance_km": total_distance_km,
-        "co2_saved_kg": round(total_distance_km * 0.45, 2),
-        "fuel_savings_percentage": 22.5,
-        "routes": routes_output
-    }
+            
+    return {"status": "success", "routes": routes_output}
 
 if __name__ == "__main__":
-    hub = [28.6139, 77.2090]
+    depot = [29.3909, 76.9708] # Panipat Hub
     pickups = [
-        {"node_id": "LST-8831", "lat": 28.6210, "lng": 77.2150, "weight_quintals": 5.0},
-        {"node_id": "LST-8832", "lat": 28.6300, "lng": 77.2200, "weight_quintals": 3.0},
-        {"node_id": "LST-8835", "lat": 28.6400, "lng": 77.2300, "weight_quintals": 7.0},
+        {"id": "F1_Sonipat", "lat": 28.9931, "lng": 77.0151, "weight_quintals": 5}, 
+        {"id": "F2_Rohtak", "lat": 28.8955, "lng": 76.6066, "weight_quintals": 12}, 
+        {"id": "F3_Karnal", "lat": 29.6857, "lng": 76.9905, "weight_quintals": 35} 
     ]
-    res = solve_cvrp(hub, pickups, max_trucks=2, truck_capacity=15.0)
+    deliveries = [
+        {"id": "B1_Azadpur", "lat": 28.7373, "lng": 77.1725, "weight_quintals": 5}, 
+        {"id": "B2_Gurugram", "lat": 28.4595, "lng": 77.0266, "weight_quintals": 12}, 
+        {"id": "B3_Noida", "lat": 28.5355, "lng": 77.3910, "weight_quintals": 35} 
+    ]
+    vehicles = [
+        {"id": "TATA_ACE_1", "capacity_quintals": 8, "fixed_cost": 1000},
+        {"id": "BOLERO_1", "capacity_quintals": 15, "fixed_cost": 1800},
+        {"id": "EICHER_1", "capacity_quintals": 40, "fixed_cost": 3500}
+    ]
+    
     import json
+    res = solve_vrppd(depot, pickups, deliveries, vehicles)
     print(json.dumps(res, indent=2))
