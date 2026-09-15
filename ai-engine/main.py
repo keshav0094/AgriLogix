@@ -102,7 +102,7 @@ MOCK_LISTINGS = {
 def health_check():
     return {"status": "online", "service": "KrishiSetu AI Forecasting & Multi-Vehicle VRPPD Engine"}
 
-@app.post("/api/v1/forecast/price")
+@app.post("/api/v1/forecast/predict")
 def get_price_forecast(payload: ForecastRequest):
     try:
         forecast_result = run_price_forecast(

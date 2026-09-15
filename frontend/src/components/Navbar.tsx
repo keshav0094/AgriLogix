@@ -6,13 +6,14 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <span className="flex-shrink-0 flex items-center text-2xl font-bold tracking-tight">
+            <Link to="/" className="flex-shrink-0 flex items-center text-2xl font-bold tracking-tight hover:text-emerald-200 transition">
               🌱 AgriLogix
-            </span>
+            </Link>
             <div className="ml-10 flex items-baseline space-x-4">
-              <Link to="/" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700">Live Dispatch Map</Link>
-              <Link to="/farmer" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700">Orders</Link>
-              <Link to="/fleet" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700">Fleet Status</Link>
+              <Link to="/" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 transition">Home</Link>
+              <Link to="/farmer" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 transition">Farmer Portal</Link>
+              <Link to="/buyer" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 transition">Buyer Portal</Link>
+              <Link to="/dispatch" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 transition">Admin Dispatch</Link>
             </div>
           </div>
         </div>

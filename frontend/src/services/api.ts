@@ -23,4 +23,12 @@ export const getOrders = () => axios.get(`${API_BASE_URL}/orders`);
 export const createOrder = (orderData: any) => axios.post(`${API_BASE_URL}/orders`, orderData);
 export const getVehicles = () => axios.get(`${API_BASE_URL}/vehicles`);
 
+export const getPriceForecast = (params: { crop: string; region?: string; days?: number }) => {
+  return axios.post(`${API_BASE_URL.replace('/logistics', '')}/forecast/predict`, {
+    crop_name: params.crop,
+    state: params.region,
+    forecast_days: params.days || 14
+  });
+};
+
 export default api;

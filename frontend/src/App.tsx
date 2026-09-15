@@ -1,9 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import LandingPage from './pages/LandingPage';
+import FarmerDashboard from './pages/FarmerDashboard';
+import BuyerDashboard from './pages/BuyerDashboard';
 import Dashboard from './pages/Dashboard';
-import Orders from './pages/Orders';
 import FleetStatus from './pages/FleetStatus';
-import NewOrder from './pages/NewOrder';
 
 function App() {
   return (
@@ -12,10 +13,11 @@ function App() {
         <Navbar />
         <main className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/orders" element={<Orders />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/farmer" element={<FarmerDashboard />} />
+            <Route path="/buyer" element={<BuyerDashboard />} />
+            <Route path="/dispatch" element={<Dashboard />} />
             <Route path="/fleet" element={<FleetStatus />} />
-            <Route path="/farmer" element={<NewOrder />} />
           </Routes>
         </main>
       </div>
