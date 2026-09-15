@@ -31,4 +31,9 @@ export const getPriceForecast = (params: { crop: string; region?: string; days?:
   });
 };
 
+export const getListings = () => axios.get(`${API_BASE_URL.replace('/logistics', '')}/marketplace/listings`);
+export const createListing = (data: any) => axios.post(`${API_BASE_URL.replace('/logistics', '')}/marketplace/listings`, data);
+export const getRequests = () => axios.get(`${API_BASE_URL.replace('/logistics', '')}/marketplace/requests`);
+export const createRequest = (data: any) => axios.post(`${API_BASE_URL.replace('/logistics', '')}/marketplace/requests`, data);
+
 export default api;

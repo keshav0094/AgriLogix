@@ -5,6 +5,7 @@ import FarmerDashboard from './pages/FarmerDashboard';
 import BuyerDashboard from './pages/BuyerDashboard';
 import Dashboard from './pages/Dashboard';
 import FleetStatus from './pages/FleetStatus';
+import BuyerMarketplace from './pages/BuyerMarketplace';
 
 function App() {
   return (
@@ -14,11 +15,13 @@ function App() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/buyer/marketplace" element={<BuyerMarketplace />} />
             <Route path="/farmer" element={<FarmerDashboard />} />
             <Route path="/buyer" element={<BuyerDashboard />} />
             <Route path="/dispatch" element={<Dashboard />} />
             <Route path="/fleet" element={<FleetStatus />} />
           </Routes>
+
         </main>
       </div>
     </Router>

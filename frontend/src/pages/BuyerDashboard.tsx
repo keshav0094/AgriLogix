@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getOrders } from '../services/api';
 
+import { Link } from 'react-router-dom';
+
 export default function BuyerDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +18,15 @@ export default function BuyerDashboard() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 text-blue-800">Buyer Dashboard - AgriLogix</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <h1 className="text-3xl font-bold text-blue-800">Buyer Dashboard - AgriLogix</h1>
+        <Link 
+          to="/buyer/marketplace" 
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow transition"
+        >
+          Browse Listed Items
+        </Link>
+      </div>
       
       <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Incoming Deliveries</h2>
