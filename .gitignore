@@ -244,3 +244,9 @@ yarn-error.log*
 
 my-part/
 __pycache__/
+
+# BMAD / Agent AI Directories
+.agent/
+.agents/
+.gemini/
+AGENTS.md

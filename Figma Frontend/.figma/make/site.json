@@ -1,0 +1,10 @@
+{
+  "description": "AgriLogix connects farmers and buyers in India, offering AI-driven price predictions, a marketplace for crop listings, and efficient logistics management.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

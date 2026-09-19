@@ -7,7 +7,7 @@ import uuid
 from fastapi.middleware.cors import CORSMiddleware
 
 # Ignore Pyright import warnings for local files
-from forecast_engine import run_price_forecast  # type: ignore
+from forecast_engine import run_price_forecast, get_unique_crops, get_regions_for_crop, get_top_crops_with_prices  # type: ignore
 from routing_engine import solve_vrppd          # type: ignore
 
 app = FastAPI(
@@ -38,9 +38,8 @@ app.add_middleware(
 
 # --- Models for Forecasting ---
 class ForecastRequest(BaseModel):
-    crop_name: str = "Potato"
-    state: Optional[str] = None
-    forecast_days: int = 14
+    crop: str = "Wheat (Gehun)"
+    region: str = "Punjab - Ludhiana Mandi"
 
 # --- Models for Advanced Logistics (VRPPD) ---
 class Coordinate(BaseModel):
@@ -111,13 +110,36 @@ MOCK_LISTINGS = {
 def health_check():
     return {"status": "online", "service": "KrishiSetu AI Forecasting & Multi-Vehicle VRPPD Engine"}
 
+@app.get("/api/v1/forecast/crops")
+def get_crops():
+    try:
+        crops = get_unique_crops()
+        return {"status": "success", "data": crops}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/forecast/crops/prices")
+def get_crops_prices(limit: int = 30):
+    try:
+        data = get_top_crops_with_prices(limit)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/forecast/regions")
+def get_regions(crop: str):
+    try:
+        regions = get_regions_for_crop(crop)
+        return {"status": "success", "data": regions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/forecast/predict")
 def get_price_forecast(payload: ForecastRequest):
     try:
         forecast_result = run_price_forecast(
-            crop_name=payload.crop_name,
-            state_name=payload.state,
-            forecast_days=payload.forecast_days
+            crop_name=payload.crop,
+            region_name=payload.region
         )
         return {"status": "success", "data": forecast_result}
     except Exception as e:

@@ -5,9 +5,6 @@ import lombok.Data;
 
 @Data
 public class ForecastRequest {
-    @JsonProperty("crop_name")
-    private String cropName;
-    private String state;
-    @JsonProperty("forecast_days")
-    private Integer forecastDays;
+    private String crop;
+    private String region;
 }
