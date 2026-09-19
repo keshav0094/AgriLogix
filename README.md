@@ -16,10 +16,13 @@ Create a MySQL database named `agrilogix_db`. The Spring Boot backend will auto-
 
 ### 2. Boot the AI Engine
 
-Open a terminal, activate your virtual environment `(venv)`, navigate to the AI directory, and start the FastAPI server:
+Open a terminal, navigate to the my-part directory, set up your virtual environment `(venv)`, install dependencies, and start the FastAPI server:
 
 ```powershell
 cd ai-engine
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
@@ -40,12 +43,13 @@ cd java-backend\demo
 
 ### 4. Start the Frontend Dashboard
 
-Open a **third** terminal tab, navigate to the frontend directory, and start the Vite development server:
+Open a **third** terminal tab, navigate to the frontend directory, install dependencies, and start the Vite development server:
 
 PowerShell
 
 ```powershell
 cd frontend
+npm install
 npm run dev
 ```
 

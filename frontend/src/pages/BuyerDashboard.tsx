@@ -45,7 +45,7 @@ export default function BuyerDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {orders.map((order: any) => (
+                {Array.isArray(orders) && orders.map((order: any) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">#{order.id}</td>
                     <td className="px-4 py-3">{order.farmer?.id || '-'}</td>
@@ -61,7 +61,7 @@ export default function BuyerDashboard() {
                     </td>
                   </tr>
                 ))}
-                {orders.length === 0 && (
+                {(!Array.isArray(orders) || orders.length === 0) && (
                   <tr>
                     <td colSpan={5} className="px-4 py-4 text-center text-gray-500">No incoming deliveries found.</td>
                   </tr>

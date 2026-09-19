@@ -156,7 +156,7 @@ export default function FarmerDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {orders.map((order: any) => (
+                    {Array.isArray(orders) && orders.map((order: any) => (
                       <tr key={order.id} className="hover:bg-gray-50 transition">
                         <td className="px-4 py-3 font-medium text-gray-900">#{order.id}</td>
                         <td className="px-4 py-3">{order.buyer?.id || '-'}</td>
@@ -172,7 +172,7 @@ export default function FarmerDashboard() {
                         </td>
                       </tr>
                     ))}
-                    {orders.length === 0 && (
+                    {(!Array.isArray(orders) || orders.length === 0) && (
                       <tr>
                         <td colSpan={5} className="px-4 py-4 text-center text-gray-500">No orders found.</td>
                       </tr>
