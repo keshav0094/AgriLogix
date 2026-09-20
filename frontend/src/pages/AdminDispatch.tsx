@@ -23,19 +23,59 @@ const redIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// Regions Config
-const regions = [
-  { name: 'Delhi NCR Corridor', latRange: [28.2, 29.0], lngRange: [76.8, 77.6], pinBase: 110000, drops: 3 },
-  { name: 'Haryana Corridor', latRange: [28.5, 29.5], lngRange: [75.5, 76.5], pinBase: 120000, drops: 4 },
-  { name: 'Punjab Corridor', latRange: [30.5, 31.5], lngRange: [74.5, 76.0], pinBase: 140000, drops: 3 },
-  { name: 'Rajasthan Corridor', latRange: [26.0, 28.0], lngRange: [73.5, 75.5], pinBase: 302000, drops: 4 },
-  { name: 'Mumbai/Pune Corridor', latRange: [18.5, 19.3], lngRange: [72.9, 74.0], pinBase: 400000, drops: 3 },
-  { name: 'Karnataka Corridor', latRange: [14.5, 16.0], lngRange: [74.8, 76.5], pinBase: 560000, drops: 3 },
-  { name: 'Bihar Corridor', latRange: [24.5, 25.5], lngRange: [84.5, 86.0], pinBase: 800000, drops: 4 },
-  { name: 'Manipur Corridor', latRange: [24.0, 25.0], lngRange: [93.5, 94.5], pinBase: 795000, drops: 3 },
+// 5 Indian states with lat/lng bounds for generating mock nodes
+const statesConfig = [
+  { name: 'Punjab', latRange: [30.0, 31.5], lngRange: [74.5, 76.5], pinBase: 140000, farmerCount: 14, mandiCount: 3 },
+  { name: 'Maharashtra', latRange: [18.0, 20.0], lngRange: [73.0, 76.0], pinBase: 400000, farmerCount: 14, mandiCount: 4 },
+  { name: 'Karnataka', latRange: [13.0, 16.0], lngRange: [75.0, 77.0], pinBase: 560000, farmerCount: 14, mandiCount: 3 },
+  { name: 'Madhya Pradesh', latRange: [22.0, 25.0], lngRange: [76.0, 80.0], pinBase: 450000, farmerCount: 13, mandiCount: 4 },
+  { name: 'West Bengal', latRange: [22.5, 25.0], lngRange: [87.0, 89.0], pinBase: 700000, farmerCount: 13, mandiCount: 3 },
 ];
 
-import { getOrders, triggerOptimization } from '../services/api';
+function getRandomInRange(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function getRandomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function generateNodes() {
+  const generatedNodes: any[] = [];
+  let nodeIdCounter = 1;
+
+  statesConfig.forEach((state) => {
+    // Generate Farmers
+    for (let i = 0; i < state.farmerCount; i++) {
+      generatedNodes.push({
+        id: `NODE-F-${nodeIdCounter++}`,
+        corridor: state.name, // Link node to state
+        type: 'pickup',
+        lat: getRandomInRange(state.latRange[0], state.latRange[1]),
+        lng: getRandomInRange(state.lngRange[0], state.lngRange[1]),
+        displayId: `Farmer ${state.name.substring(0, 3)}-${nodeIdCounter}`,
+        pinCode: String(state.pinBase + getRandomInt(1, 999)),
+        load: getRandomInt(20, 60),
+      });
+    }
+
+    // Generate Mandis
+    for (let i = 0; i < state.mandiCount; i++) {
+      generatedNodes.push({
+        id: `NODE-M-${nodeIdCounter++}`,
+        corridor: state.name,
+        type: 'drop',
+        lat: getRandomInRange(state.latRange[0], state.latRange[1]),
+        lng: getRandomInRange(state.lngRange[0], state.lngRange[1]),
+        displayId: `${state.name} Mandi ${i + 1}`,
+        pinCode: String(state.pinBase + getRandomInt(1000, 1999)),
+        load: 0,
+      });
+    }
+  });
+
+  return generatedNodes;
+}
 
 function MapController({ setZoom }: { setZoom: (z: number) => void }) {
   useMapEvents({
@@ -54,102 +94,109 @@ export function AdminDispatch() {
   const [mapZoom, setMapZoom] = useState(5);
 
   useEffect(() => {
-    const fetchNodes = async () => {
-      try {
-        const response = await getOrders();
-        if (response?.data) {
-          const orders = response.data;
-          // Map backend orders to our nodes format for UI
-          const fetchedNodes: any[] = [];
-          orders.forEach((order: any) => {
-            // Pickups
-            if (order.farmer) {
-              fetchedNodes.push({
-                id: `NODE-F-${order.id}`,
-                corridor: 'Assigned',
-                type: 'pickup',
-                lat: order.farmer.lat,
-                lng: order.farmer.lng,
-                displayId: order.farmer.name || `Farmer ${order.id}`,
-                pinCode: '000000',
-                load: order.weightQuintals
-              });
-            }
-            // Drops (Buyers)
-            if (order.buyer) {
-              fetchedNodes.push({
-                id: `NODE-B-${order.id}`,
-                corridor: 'Assigned',
-                type: 'drop',
-                lat: order.buyer.lat,
-                lng: order.buyer.lng,
-                displayId: order.buyer.name || `Buyer ${order.id}`,
-                pinCode: '000000',
-                load: 0
-              });
-            }
-          });
-
-          // Deduplicate nodes based on displayId
-          const uniqueNodes = fetchedNodes.filter((v, i, a) => a.findIndex(t => (t.displayId === v.displayId)) === i);
-          setNodes(uniqueNodes);
-        }
-      } catch (err) {
-        console.error("Failed to load orders");
-      }
-    };
-    fetchNodes();
+    setNodes(generateNodes());
   }, []);
 
   const handleOptimize = async () => {
     setRunning(true);
-    try {
-      const response = await triggerOptimization();
+    
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-      if (response && response.routes) {
-        const calculatedCorridors: any[] = response.routes.map((route: any) => {
-          // Map AiRoutingResponse.Route to corridor state
+    const generatedCorridors: any[] = [];
+    let truckIdCounter = 1;
 
-          const sequence = route.stops ? route.stops.map((stop: any, index: number) => ({
-            id: `${stop.id}-${index}`,
-            type: stop.type === 'pickup' ? 'pickup' : 'drop',
-            action: stop.type === 'pickup' ? 'pickup' : 'dropoff',
-            load: stop.weight_quintals || 0,
-            offloadAmount: stop.type === 'drop' ? stop.weight_quintals : 0,
-            displayId: stop.name || stop.id,
-            pinCode: '000000',
-            lat: stop.coords[0],
-            lng: stop.coords[1]
-          })) : [];
+    statesConfig.forEach((state) => {
+      const stateNodes = nodes.filter(n => n.corridor === state.name);
+      const unvisitedFarmers = stateNodes.filter(n => n.type === 'pickup');
+      const mandis = stateNodes.filter(n => n.type === 'drop');
 
-          const pickups = sequence.filter((s: any) => s.type === 'pickup');
-          const drops = sequence.filter((s: any) => s.type === 'drop');
+      const truckId = `TRK-${truckIdCounter++}`;
+      let currentLoad = 0;
+      let pickupsCount = 0;
+      const sequence: any[] = [];
+      let totalLoadForTruck = 0;
+      const routePath: [number, number][] = [];
 
-          const totalLoad = pickups.reduce((acc: number, curr: any) => acc + curr.load, 0);
-
-          return {
-            id: route.truckId,
-            name: `Truck ${route.truckId}`,
-            totalPickups: pickups.length,
-            totalDrops: drops.length,
-            totalLoad: totalLoad,
-            sequence: sequence,
-            routePath: route.pathCoords || [],
-            estDistance: `Cost: ₹${route.dispatchedFixedCost || 0}`
-          };
-        });
-
-        setCorridors(calculatedCorridors);
-        setOptimized(true);
-
-        if (calculatedCorridors.length > 0) {
-          setExpandedCorridorId(calculatedCorridors[0].id);
+      while (unvisitedFarmers.length > 0) {
+        const nextFarmer = unvisitedFarmers[0];
+        
+        if (currentLoad + nextFarmer.load <= 200 && pickupsCount < 4) {
+          // Pickup
+          const farmer = unvisitedFarmers.shift()!;
+          sequence.push({
+            id: `${farmer.id}-${sequence.length}`,
+            type: 'pickup',
+            action: 'pickup',
+            load: farmer.load,
+            offloadAmount: 0,
+            displayId: farmer.displayId,
+            pinCode: farmer.pinCode,
+            lat: farmer.lat,
+            lng: farmer.lng
+          });
+          currentLoad += farmer.load;
+          totalLoadForTruck += farmer.load;
+          pickupsCount++;
+          routePath.push([farmer.lat, farmer.lng]);
+        } else {
+          // Drop-off
+          const mandi = mandis[Math.floor(Math.random() * mandis.length)];
+          sequence.push({
+            id: `${mandi.id}-${sequence.length}`,
+            type: 'drop',
+            action: 'dropoff',
+            load: 0,
+            offloadAmount: currentLoad,
+            displayId: mandi.displayId,
+            pinCode: mandi.pinCode,
+            lat: mandi.lat,
+            lng: mandi.lng
+          });
+          routePath.push([mandi.lat, mandi.lng]);
+          currentLoad = 0;
+          pickupsCount = 0;
         }
       }
-    } catch (e) {
-      console.error("Failed to optimize routes", e);
-    } finally {
-      setRunning(false);
+
+      // If truck has remaining load, final drop-off
+      if (currentLoad > 0) {
+        const mandi = mandis[Math.floor(Math.random() * mandis.length)];
+        sequence.push({
+          id: `${mandi.id}-${sequence.length}`,
+          type: 'drop',
+          action: 'dropoff',
+          load: 0,
+          offloadAmount: currentLoad,
+          displayId: mandi.displayId,
+          pinCode: mandi.pinCode,
+          lat: mandi.lat,
+          lng: mandi.lng
+        });
+        routePath.push([mandi.lat, mandi.lng]);
+      }
+
+      const totalPickups = sequence.filter(s => s.type === 'pickup').length;
+      const totalDrops = sequence.filter(s => s.type === 'drop').length;
+
+      generatedCorridors.push({
+        id: truckId,
+        name: `${state.name} Corridor Truck`,
+        totalPickups,
+        totalDrops,
+        totalLoad: totalLoadForTruck,
+        sequence,
+        routePath,
+        estDistance: `Cost: ₹${getRandomInt(3000, 8000)}`
+      });
+    });
+
+    setCorridors(generatedCorridors);
+    setOptimized(true);
+    setRunning(false);
+
+    if (generatedCorridors.length > 0) {
+      setExpandedCorridorId(generatedCorridors[0].id);
     }
   };
 
@@ -242,7 +289,8 @@ export function AdminDispatch() {
 
           {/* Always render all markers */}
           {nodes.map(n => {
-            const isExpanded = n.corridor === expandedCorridorId;
+            const activeCorridor = corridors.find(c => c.id === expandedCorridorId);
+            const isExpanded = activeCorridor?.sequence.some((s: any) => s.displayId === n.displayId) || false;
             const small = mapZoom < 7 && !isExpanded;
 
             const iconSize: [number, number] = small ? [15, 25] : [25, 41];

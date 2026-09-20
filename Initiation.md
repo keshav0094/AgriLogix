@@ -4,8 +4,8 @@ Follow these steps to start all three servers and run the website locally.
 
 ### 1. Start the AI Engine
 - Open a terminal
-- Run `.\my-part\venv\Scripts\Activate.ps1` to activate the virtual environment
 - Run `cd ai-engine`
+- Run `.\venv\Scripts\activate` to activate the virtual environment
 - Run `uvicorn main:app --reload`
 
 ### 2. Start the Java Backend
@@ -16,6 +16,7 @@ Follow these steps to start all three servers and run the website locally.
 ### 3. Start the Frontend Dashboard
 - Open a **3rd terminal** (Don't close the other two)
 - Run `cd frontend`
+- Run `npm install`
 - Run `npm run dev`
 - Go to the given link (For ex - http://localhost:5173/)
 
